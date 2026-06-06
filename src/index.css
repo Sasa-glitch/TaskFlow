@@ -1,0 +1,372 @@
+@import "tailwindcss";
+
+/* ===================================================================
+   THEME — Design tokens via Tailwind v4 @theme
+   =================================================================== */
+@theme {
+  /* ── Typography ── */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* ── Light-mode palette (used as defaults) ── */
+  --color-surface: #f8f9fc;
+  --color-surface-card: #ffffff;
+  --color-surface-elevated: #f1f3f8;
+  --color-border: #e2e5ee;
+  --color-border-focus: #a78bfa;
+  --color-text-primary: #1e1b2e;
+  --color-text-secondary: #6b7089;
+  --color-text-muted: #9ca0b3;
+
+  /* Accent — violet spectrum */
+  --color-accent: #7c3aed;
+  --color-accent-hover: #6d28d9;
+  --color-accent-soft: rgba(124, 58, 237, 0.10);
+  --color-accent-border: rgba(124, 58, 237, 0.35);
+
+  /* Status */
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-soft: rgba(239, 68, 68, 0.10);
+  --color-success: #10b981;
+  --color-success-soft: rgba(16, 185, 129, 0.10);
+  --color-warning: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.10);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.15);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ===================================================================
+   DARK MODE — overrides via .dark class on <html>
+   =================================================================== */
+.dark {
+  --color-surface: #0f1117;
+  --color-surface-card: #181a24;
+  --color-surface-elevated: #1f2233;
+  --color-border: #2a2d3e;
+  --color-border-focus: #a78bfa;
+  --color-text-primary: #f0f1f5;
+  --color-text-secondary: #9ca0b8;
+  --color-text-muted: #636780;
+
+  --color-accent: #a78bfa;
+  --color-accent-hover: #8b5cf6;
+  --color-accent-soft: rgba(167, 139, 250, 0.12);
+  --color-accent-border: rgba(167, 139, 250, 0.35);
+
+  --color-danger: #f87171;
+  --color-danger-hover: #ef4444;
+  --color-danger-soft: rgba(248, 113, 113, 0.12);
+  --color-success: #34d399;
+  --color-success-soft: rgba(52, 211, 153, 0.12);
+  --color-warning: #fbbf24;
+  --color-warning-soft: rgba(251, 191, 36, 0.12);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.25);
+  --shadow-glow: 0 0 24px rgba(167, 139, 250, 0.2);
+}
+
+/* ===================================================================
+   BASE — Global resets & defaults
+   =================================================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+/* ===================================================================
+   COMPONENT CLASSES — Reusable via @apply (Tailwind utilities only)
+   + plain CSS for custom token references.
+   =================================================================== */
+
+/* ── Layout ── */
+.page-container {
+  @apply min-h-screen flex flex-col items-center px-4 py-8 sm:px-6 md:px-8;
+}
+
+.content-wrapper {
+  @apply w-full max-w-2xl mx-auto;
+}
+
+/* ── Cards / Surfaces ── */
+.card {
+  @apply rounded-xl border transition-all duration-300;
+  background: var(--color-surface-card);
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-elevated);
+  border-color: var(--color-accent-border);
+}
+
+.card-body {
+  @apply p-5;
+}
+
+/* ── Inputs ── */
+.input-field {
+  @apply w-full px-4 py-3 rounded-lg text-sm font-normal outline-none transition-all duration-200;
+  background: var(--color-surface-elevated);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.input-field::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input-field:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+/* ── Labels ── */
+.input-label {
+  @apply block text-xs font-semibold uppercase tracking-wider mb-1.5;
+  color: var(--color-text-secondary);
+}
+
+/* ── Buttons — Shared base styles written as plain CSS ──
+   (Tailwind v4 @apply cannot reference custom classes,
+    so we inline the base into every variant.)             */
+.btn,
+.btn-primary,
+.btn-danger,
+.btn-ghost,
+.btn-edit,
+.btn-success {
+  @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 active:scale-95;
+  border: none;
+}
+
+.btn:disabled,
+.btn-primary:disabled,
+.btn-danger:disabled,
+.btn-ghost:disabled,
+.btn-edit:disabled,
+.btn-success:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.btn-sm {
+  padding: 0.375rem 0.75rem !important;
+  border-radius: 0.375rem !important;
+  font-size: 0.75rem !important;
+  gap: 0.375rem !important;
+}
+
+
+
+/* ── Button Variants ── */
+.btn-primary {
+  @apply text-white;
+  background: var(--color-accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+}
+
+.btn-edit {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.btn-edit:hover:not(:disabled) {
+  background: var(--color-warning);
+  color: #fff;
+}
+
+.btn-success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: var(--color-success);
+  color: #fff;
+}
+
+/* ── Icon Buttons ── */
+.icon-btn {
+  @apply inline-flex items-center justify-center rounded-lg cursor-pointer transition-all duration-200 active:scale-90;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface-card);
+  color: var(--color-text-secondary);
+}
+
+.icon-btn:hover {
+  border-color: var(--color-accent-border);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Badge ── */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* ── Section Title ── */
+.section-heading {
+  @apply text-lg font-bold;
+  color: var(--color-text-primary);
+}
+
+/* ── Empty State ── */
+.empty-state {
+  @apply flex flex-col items-center justify-center py-16 text-center;
+  color: var(--color-text-muted);
+}
+
+/* ── Task Card Edit Panel ── */
+.edit-panel {
+  @apply mt-4 pt-4 flex flex-col gap-3;
+  border-top: 1px dashed var(--color-border);
+  animation: slideDown 0.25s var(--ease-spring) forwards;
+}
+
+/* ── Animations ── */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* ── Theme Toggle Button ── */
+.theme-toggle {
+  @apply inline-flex items-center justify-center cursor-pointer transition-all duration-200 active:scale-90;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 50;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface-card);
+  color: var(--color-text-secondary);
+  backdrop-filter: blur(8px);
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-accent-border);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+  transform: rotate(15deg);
+}
+
+/* ── Divider ── */
+.divider {
+  @apply w-full;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* ── Scrollbar (for dark mode aesthetics) ── */
+.dark ::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+/* ── Badge Success ── */
+.badge-success {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+/* ── Toast Slide In Animation ── */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s var(--ease-spring) forwards;
+}
+

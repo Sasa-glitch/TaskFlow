@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+/* App-level styles are minimal — all design tokens and reusable
+   component classes live in index.css via @theme and @apply. */
