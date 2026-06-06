@@ -4,23 +4,44 @@ import type { Task } from "../TaskManager/TaskManager";
 interface TaskProps {
     task: Task;
     index: number;
-    onDelete: (id: number) => Promise<void> | void;
+    onDelete: (id: number, url: string | null) => Promise<void> | void;
     onUpdate: (
         id: number,
         title: string,
         description: string,
+        newImageUrl?: string | null,
     ) => Promise<void> | void;
-    onFinish : (
-        id: number,
-        isFinished: boolean,
-    ) => Promise<void> | void;
+    onFinish: (id: number, isFinished: boolean) => Promise<void> | void;
+    deleteImage: (url: string) => Promise<void> | void;
+    uploadImage: (file: File) => Promise<string | null> | void;
 }
 
-function TaskComponent({ task, index, onDelete, onUpdate, onFinish }: TaskProps) {
+function TaskComponent({
+    task,
+    index,
+    onDelete,
+    onUpdate,
+    onFinish,
+    deleteImage,
+    uploadImage,
+}: TaskProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState("");
     const [editDescription, setEditDescription] = useState("");
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [newImageFile, setNewImageFile] = useState<File | null>(null);
+    const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+    // —— Handle Changing Image
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setNewImageFile(file);
+            if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+            setNewImagePreview(URL.createObjectURL(file));
+        }
+    };
 
     const handleEditClick = () => {
         if (isEditing) {
@@ -34,12 +55,30 @@ function TaskComponent({ task, index, onDelete, onUpdate, onFinish }: TaskProps)
 
     const handleProceedEdit = async () => {
         if (!editTitle.trim()) return;
-        await onUpdate(task.id, editTitle, editDescription);
+
+        let newUrl: string | null | undefined = undefined;
+
+        if (newImageFile) {
+            setIsUploadingImage(true);
+            const uploaded = (await uploadImage(newImageFile)) as string | null;
+            if (uploaded) {
+                // delete old image if exists
+                if (task.image_url) await deleteImage(task.image_url);
+                newUrl = uploaded;
+            }
+            setIsUploadingImage(false);
+        }
+
+        await onUpdate(task.id, editTitle, editDescription, newUrl);
+        setNewImageFile(null);
+        if (newImagePreview) {
+            URL.revokeObjectURL(newImagePreview);
+            setNewImagePreview(null);
+        }
         setIsEditing(false);
     };
 
     return (
-        // TODO task now has image please handle showing the image in the content seamlessly with the current design and respect all screens
         <div
             className={`card animate-fade-in transition-all duration-300 ${
                 task.finished ? "opacity-60 border-success/30 shadow-none" : ""
@@ -94,12 +133,14 @@ function TaskComponent({ task, index, onDelete, onUpdate, onFinish }: TaskProps)
                             {task.description || "No description"}
                         </p>
                         {task.image_url && (
-                            <div className="mt-3 relative rounded-lg overflow-hidden border border-(--color-border) bg-(--color-surface-elevated) max-w-full sm:max-w-md aspect-video sm:aspect-auto sm:max-h-64 cursor-pointer group shadow-sm transition-all duration-300 hover:shadow-md hover:border-[var(--color-accent-border)]">
+                            <div className="mt-3 relative rounded-lg overflow-hidden border border-(--color-border) bg-(--color-surface-elevated) max-w-full sm:max-w-md aspect-video sm:aspect-auto sm:max-h-64 cursor-pointer group shadow-sm transition-all duration-300 hover:shadow-md hover:border-(--color-accent-border)">
                                 <img
                                     src={task.image_url}
                                     alt={task.title}
-                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                                    onClick={() => setSelectedImage(task.image_url)}
+                                    className={`w-full h-full object-cover transition-transform duration-300 ${task.finished ? " blur-sm brightness-60 grayscale " : " group-hover:scale-[1.02]"}`}
+                                    onClick={() =>
+                                        setSelectedImage(task.image_url)
+                                    }
                                 />
                             </div>
                         )}
@@ -114,7 +155,11 @@ function TaskComponent({ task, index, onDelete, onUpdate, onFinish }: TaskProps)
                                 task.finished ? "btn-ghost" : "btn-success"
                             }`}
                             onClick={() => onFinish(task.id, task.finished)}
-                            title={task.finished ? "Mark as Incomplete" : "Mark as Completed"}
+                            title={
+                                task.finished
+                                    ? "Mark as Incomplete"
+                                    : "Mark as Completed"
+                            }
                         >
                             {task.finished ? (
                                 <>
@@ -201,7 +246,7 @@ function TaskComponent({ task, index, onDelete, onUpdate, onFinish }: TaskProps)
                         <button
                             id={`delete-btn-${task.id}`}
                             className="btn-sm btn-danger"
-                            onClick={() => onDelete(task.id)}
+                            onClick={() => onDelete(task.id, task.image_url)}
                         >
                             <svg
                                 width="14"
@@ -260,11 +305,122 @@ function TaskComponent({ task, index, onDelete, onUpdate, onFinish }: TaskProps)
                                 />
                             </div>
                         </div>
+                        {/* Image Edit Section */}
+                        <div className="flex flex-col gap-2 mt-1">
+                            <span className="input-label">Update Image</span>
+
+                            {/* Show new preview OR current image */}
+                            {newImagePreview ? (
+                                <div className="relative group rounded-lg overflow-hidden border border-(--color-border) max-w-xs aspect-video bg-(--color-surface-elevated)">
+                                    <img
+                                        src={newImagePreview}
+                                        className="w-full h-full object-cover"
+                                        alt="New preview"
+                                    />
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setNewImageFile(null);
+                                                if (newImagePreview)
+                                                    URL.revokeObjectURL(
+                                                        newImagePreview,
+                                                    );
+                                                setNewImagePreview(null);
+                                            }}
+                                            className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer"
+                                        >
+                                            <svg
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <line
+                                                    x1="18"
+                                                    y1="6"
+                                                    x2="6"
+                                                    y2="18"
+                                                />
+                                                <line
+                                                    x1="6"
+                                                    y1="6"
+                                                    x2="18"
+                                                    y2="18"
+                                                />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : task.image_url ? (
+                                <div className="relative group rounded-lg overflow-hidden border border-(--color-border) max-w-xs aspect-video bg-(--color-surface-elevated)">
+                                    <img
+                                        src={task.image_url}
+                                        className="w-full h-full object-cover opacity-60"
+                                        alt="Current"
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <label
+                                            htmlFor={`edit-file-${task.id}`}
+                                            className="px-3 py-1.5 bg-black/60 hover:bg-black/80 text-white text-xs rounded-lg cursor-pointer transition-colors"
+                                        >
+                                            Replace Image
+                                        </label>
+                                    </div>
+                                    <input
+                                        type="file"
+                                        id={`edit-file-${task.id}`}
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleImageChange}
+                                    />
+                                </div>
+                            ) : (
+                                <label
+                                    htmlFor={`edit-file-${task.id}`}
+                                    className="border-2 border-dashed border-(--color-border) hover:border-(--color-border-focus) rounded-lg p-4 flex items-center justify-center gap-2 cursor-pointer bg-(--color-surface-elevated) transition-all"
+                                >
+                                    <input
+                                        type="file"
+                                        id={`edit-file-${task.id}`}
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleImageChange}
+                                    />
+                                    <svg
+                                        className="w-5 h-5 text-(--color-text-secondary)"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    >
+                                        <rect
+                                            x="3"
+                                            y="3"
+                                            width="18"
+                                            height="18"
+                                            rx="2"
+                                        />
+                                        <circle cx="8.5" cy="8.5" r="1.5" />
+                                        <polyline points="21 15 16 10 5 21" />
+                                    </svg>
+                                    <span className="text-xs text-(--color-text-secondary)">
+                                        Add image
+                                    </span>
+                                </label>
+                            )}
+                        </div>
                         <button
                             id={`proceed-edit-btn-${task.id}`}
                             className="btn-success self-end"
                             onClick={handleProceedEdit}
-                            disabled={!editTitle.trim()}
+                            disabled={!editTitle.trim() || isUploadingImage}
                         >
                             <svg
                                 width="16"
@@ -278,16 +434,18 @@ function TaskComponent({ task, index, onDelete, onUpdate, onFinish }: TaskProps)
                             >
                                 <polyline points="20 6 9 17 4 12" />
                             </svg>
-                            Proceed to Edit
+                            {isUploadingImage
+                                ? "Uploading..."
+                                : "Proceed to Edit"}
                         </button>
                     </div>
                 )}
             </div>
-            
+
             {/* ── Image Lightbox Modal ── */}
             {selectedImage && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fade-in cursor-zoom-out"
+                    className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fade-in cursor-zoom-out"
                     onClick={() => setSelectedImage(null)}
                 >
                     <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-xl border border-white/10 shadow-2xl">

@@ -27,6 +27,7 @@ function TaskManager({ userSession }: { userSession: Session }) {
     const { showToast } = useToast();
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isAddingTask, setIsAddingTask] = useState<boolean>(false);
 
     // —— Clean up image preview to prevent memory leaks ──
     useEffect(() => {
@@ -65,33 +66,35 @@ function TaskManager({ userSession }: { userSession: Session }) {
 
     // —— Upload Image To Bucket ──
     const handleUploadImage = async (file: File): Promise<string | null> => {
-        // const fileExtension = file.name.split('.').pop() || 'png';
-        // const cleanBase = file.name
-        //     .substring(0, file.name.lastIndexOf('.'))
-        //     .replace(/[^a-zA-Z0-9-]/g, '_')
-        //     .replace(/_+/g, '_');
-        // const safeBase = cleanBase.replace(/^_+|_+$/g, '') || 'image';
-        // const pathName = `${safeBase}-${Date.now()}.${fileExtension}`;
-        const pathName = `${file.name}-${Date.now()}`
+        const pathName = `${userSession.user.email}-${Date.now()}-${file.name.split(".").pop()}`;
+        console.log("this is path name", pathName);
 
-        const {error} = await supabase.storage.from("images").upload(pathName, file);
+        const { error } = await supabase.storage
+            .from("images")
+            .upload(pathName, file);
         if (error) {
             console.error("error happened during uploading the image", error);
             return null;
         }
-        const publicUrl = supabase.storage.from("images").getPublicUrl(pathName);
+        const publicUrl = supabase.storage
+            .from("images")
+            .getPublicUrl(pathName);
         return publicUrl.data.publicUrl;
-    }
+    };
     // ── Add Task ──
     const handleAddingTask = async () => {
         // —— Uploading the image ——
-        let image_url: null| string = null;
+        let image_url: null | string = null;
         if (imageFile) {
             image_url = await handleUploadImage(imageFile);
             console.log("this is the image url", image_url);
         }
         if (!task.title.trim()) return;
-        const { error } = await supabase.from("tasks").insert({...task, image_url}).single();
+        setIsAddingTask(true);
+        const { error } = await supabase
+            .from("tasks")
+            .insert({ ...task, image_url })
+            .single();
         if (error) {
             console.error("Error adding task:", error);
             showToast(error.message, "error");
@@ -107,18 +110,23 @@ function TaskManager({ userSession }: { userSession: Session }) {
                 URL.revokeObjectURL(imagePreview);
                 setImagePreview(null);
             }
-            const fileInput = document.getElementById("file") as HTMLInputElement;
+            const fileInput = document.getElementById(
+                "file",
+            ) as HTMLInputElement;
             if (fileInput) {
                 fileInput.value = "";
             }
             showToast("Task added successfully!", "success");
-            // fetchTasks();
         }
+        setIsAddingTask(false);
     };
 
     // ── Delete Task ──
-    const deletingTask = async (id: number) => {
+    const deletingTask = async (id: number, url: string | null) => {
         const { error } = await supabase.from("tasks").delete().eq("id", id);
+        if (url) {
+            handleDeleteImage(url);
+        }
         if (error) {
             console.error("Couldn't delete task:", error);
             showToast(error.message, "error");
@@ -128,22 +136,40 @@ function TaskManager({ userSession }: { userSession: Session }) {
         }
     };
 
+    // —— Delete Picture
+    const handleDeleteImage = async (url: string) => {
+        const path = url.split("/public/images/")[1];
+        const { error, data } = await supabase.storage
+            .from("images")
+            .remove([path]);
+        if (error) {
+            console.error("Couldn't delete an Image:", error);
+            showToast(error.message, "error");
+        } else {
+            // setTasksList((prev) => prev.filter((t) => t.id !== id));
+            console.log("deleting image data", data);
+            showToast("Image deleted successfully", "success");
+        }
+    };
+
     // ── Update Task ──
     const handleUpdateTask = async (
         id: number,
         title: string,
         description: string,
+        newImageUrl?: string | null,
     ) => {
+        const updatePayload: Record<string, unknown> = { title, description };
+        if (newImageUrl !== undefined) updatePayload.image_url = newImageUrl;
+
         const { error } = await supabase
             .from("tasks")
-            .update({ title, description })
+            .update(updatePayload)
             .eq("id", id);
         if (error) {
-            console.error("Error updating task:", error);
             showToast(error.message, "error");
         } else {
             showToast("Task updated successfully!", "success");
-            // fetchTasks();
         }
     };
 
@@ -204,17 +230,23 @@ function TaskManager({ userSession }: { userSession: Session }) {
                 { event: "UPDATE", schema: "public", table: "tasks" },
                 (payload) => {
                     const updatedTask = payload.new as Task;
-                    setTasksList(prev => prev.map(task => task.id === updatedTask.id ? updatedTask : task))
+                    setTasksList((prev) =>
+                        prev.map((task) =>
+                            task.id === updatedTask.id ? updatedTask : task,
+                        ),
+                    );
                 },
             )
             .on(
-                "postgres_changes", 
-                {event: "DELETE", schema: "public", table: "tasks"},
+                "postgres_changes",
+                { event: "DELETE", schema: "public", table: "tasks" },
                 (payload) => {
                     const removedTaskId = payload.old.id;
-                    console.log("this is the removed task id", removedTaskId)
-                    setTasksList(prev => prev.filter(task => task.id !== removedTaskId));
-                }
+                    console.log("this is the removed task id", removedTaskId);
+                    setTasksList((prev) =>
+                        prev.filter((task) => task.id !== removedTaskId),
+                    );
+                },
             )
             .subscribe((status) => {
                 console.log("this is the status", status);
@@ -253,7 +285,7 @@ function TaskManager({ userSession }: { userSession: Session }) {
                 </header>
 
                 {/* ── Add Task Form ── */}
-                <div className="card mb-8 animate-fade-in">
+                <div className={`card mb-8 animate-fade-in ${isAddingTask ?? " blur-sm"}`}>
                     <div className="card-body">
                         <form
                             id="add-task-form"
@@ -308,11 +340,13 @@ function TaskManager({ userSession }: { userSession: Session }) {
                                         />
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex flex-col gap-2">
-                                    <span className="input-label">Task Image (Optional)</span>
+                                    <span className="input-label">
+                                        Task Image (Optional)
+                                    </span>
                                     {imagePreview ? (
-                                        <div className="relative group rounded-lg overflow-hidden border border-[var(--color-border)] max-w-sm aspect-video bg-[var(--color-surface-elevated)]">
+                                        <div className="relative group rounded-lg overflow-hidden border border-(--color-border) max-w-sm aspect-video bg-(--color-surface-elevated)">
                                             <img
                                                 src={imagePreview}
                                                 className="w-full h-full object-cover"
@@ -321,7 +355,9 @@ function TaskManager({ userSession }: { userSession: Session }) {
                                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                                                 <button
                                                     type="button"
-                                                    onClick={handleRemoveSelectedImage}
+                                                    onClick={
+                                                        handleRemoveSelectedImage
+                                                    }
                                                     className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors duration-200 cursor-pointer shadow-md"
                                                     title="Remove image"
                                                 >
@@ -344,7 +380,7 @@ function TaskManager({ userSession }: { userSession: Session }) {
                                     ) : (
                                         <label
                                             htmlFor="file"
-                                            className="border-2 border-dashed border-[var(--color-border)] hover:border-[var(--color-border-focus)] rounded-lg p-5 flex flex-col items-center justify-center gap-2 cursor-pointer bg-[var(--color-surface-elevated)] hover:bg-[var(--color-surface-card)] transition-all duration-200 group"
+                                            className="border-2 border-dashed border-(--color-border) hover:border-(--color-border-focus) rounded-lg p-5 flex flex-col items-center justify-center gap-2 cursor-pointer bg-(--color-surface-elevated) hover:bg-(--color-surface-card) transition-all duration-200 group"
                                         >
                                             <input
                                                 type="file"
@@ -354,7 +390,7 @@ function TaskManager({ userSession }: { userSession: Session }) {
                                                 onChange={handleAddingImage}
                                             />
                                             <svg
-                                                className="w-6 h-6 text-[var(--color-text-secondary)] group-hover:text-[var(--color-accent)] transition-colors duration-200"
+                                                className="w-6 h-6 text-(--color-text-secondary) group-hover:text-(--color-accent) transition-colors duration-200"
                                                 viewBox="0 0 24 24"
                                                 fill="none"
                                                 stroke="currentColor"
@@ -362,14 +398,25 @@ function TaskManager({ userSession }: { userSession: Session }) {
                                                 strokeLinecap="round"
                                                 strokeLinejoin="round"
                                             >
-                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                                <rect
+                                                    x="3"
+                                                    y="3"
+                                                    width="18"
+                                                    height="18"
+                                                    rx="2"
+                                                    ry="2"
+                                                />
+                                                <circle
+                                                    cx="8.5"
+                                                    cy="8.5"
+                                                    r="1.5"
+                                                />
                                                 <polyline points="21 15 16 10 5 21" />
                                             </svg>
-                                            <span className="text-xs font-semibold text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)] transition-colors duration-200">
+                                            <span className="text-xs font-semibold text-(--color-text-secondary) group-hover:text-(--color-text-primary) transition-colors duration-200">
                                                 Click to upload task image
                                             </span>
-                                            <span className="text-[10px] text-[var(--color-text-muted)]">
+                                            <span className="text-[10px] text-(--color-text-muted)">
                                                 PNG, JPG, GIF up to 5MB
                                             </span>
                                         </label>
@@ -380,22 +427,53 @@ function TaskManager({ userSession }: { userSession: Session }) {
                                 id="add-task-btn"
                                 type="submit"
                                 className="btn-primary self-end"
-                                disabled={!task.title.trim()}
+                                disabled={!task.title.trim() || isAddingTask}
                             >
-                                <svg
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <line x1="12" y1="5" x2="12" y2="19" />
-                                    <line x1="5" y1="12" x2="19" y2="12" />
-                                </svg>
-                                Add Task
+                                {isAddingTask ? (
+                                    <>
+                                        <svg
+                                            className="animate-spin"
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        >
+                                            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                                        </svg>
+                                        Adding...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        >
+                                            <line
+                                                x1="12"
+                                                y1="5"
+                                                x2="12"
+                                                y2="19"
+                                            />
+                                            <line
+                                                x1="5"
+                                                y1="12"
+                                                x2="19"
+                                                y2="12"
+                                            />
+                                        </svg>
+                                        Add Task
+                                    </>
+                                )}
                             </button>
                         </form>
                     </div>
@@ -426,6 +504,8 @@ function TaskManager({ userSession }: { userSession: Session }) {
                                 onDelete={deletingTask}
                                 onUpdate={handleUpdateTask}
                                 onFinish={handleFinishTask}
+                                deleteImage={handleDeleteImage}
+                                uploadImage={handleUploadImage}
                             />
                         ))}
                     </div>
