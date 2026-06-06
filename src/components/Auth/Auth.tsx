@@ -57,7 +57,7 @@ export default function Auth() {
                 </label>
                 <input
                     className="input-field"
-                    type="text"
+                    type="password"
                     name=""
                     id="password"
                     placeholder="Enter Password"
